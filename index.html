@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animação de Similaridade de Triângulos Retângulos com Rotação</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        canvas {
+            border: 1px solid #000;
+            background-color: #fff;
+        }
+        #law {
+            margin-top: 20px;
+            font-size: 18px;
+            text-align: center;
+            max-width: 600px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" width="800" height="600"></canvas>
+    <div id="law"></div>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const lawDiv = document.getElementById('law');
+
+        // Coordenadas do triângulo
+        const A = { x: 200, y: 400 }; // Vértice do ângulo reto
+        const B = { x: 400, y: 400 }; // Vértice da base
+        const C = { x: 200, y: 200 }; // Vértice superior
+        let H = { x: 0, y: 0 }; // Pé da altitude
+
+        // Estados da animação
+        let state = 0; // 0: Desenhar triângulo, 1: Desenhar altitude, 2: Destacar triângulo menor, 3: Mover triângulo, 4: Rotacionar triângulo, 5: Exibir lei
+        let t = 0; // Progresso da animação (0 a 1)
+        let smallTriangleOffset = { x: 0, y: 0 }; // Deslocamento do triângulo menor
+        let rotationAngle = 0; // Ângulo atual de rotação
+        let targetAngle = 0; // Ângulo alvo para alinhar H'C' com AB
+
+        // Calcular o pé da altitude (H) de A até a hipotenusa BC
+        function calculateAltitudeFoot() {
+            const BCx = C.x - B.x;
+            const BCy = C.y - B.y;
+            const t = ((A.x - B.x) * BCx + (A.y - B.y) * BCy) / (BCx * BCx + BCy * BCy);
+            H.x = B.x + t * BCx;
+            H.y = B.y + t * BCy;
+            console.log('Coordenadas de H:', H); // Depuração
+        }
+
+        // Calcular ângulo para rotacionar AHC até H'C' ser paralelo a AB, com ajuste de +1 grau
+        function calculateRotationAngle() {
+            // Vetor H'C' (de H' para C' após translação)
+            const H_trans = { x: H.x + smallTriangleOffset.x, y: H.y + smallTriangleOffset.y };
+            const C_trans = { x: C.x + smallTriangleOffset.x, y: C.y + smallTriangleOffset.y };
+            const HCx = C_trans.x - H_trans.x;
+            const HCy = C_trans.y - H_trans.y;
+            const angleHC = Math.atan2(HCy, HCx);
+
+            // Vetor AB (de A para B)
+            const ABx = B.x - A.x;
+            const ABy = B.y - A.y;
+            const angleAB = Math.atan2(ABy, ABx);
+
+            // Ângulo de rotação necessário
+            let angle = angleAB - angleHC;
+            // Normalizar ângulo para [-π, π]
+            while (angle > Math.PI) angle -= 2 * Math.PI;
+            while (angle < -Math.PI) angle += 2 * Math.PI;
+            // Adicionar 1 grau (0.01745 rad)
+            angle += 0.01745;
+            console.log('Ângulo alvo (radianos):', angle, 'graus:', angle * 180 / Math.PI); // Depuração
+            return angle;
+        }
+
+        // Rotacionar um ponto em torno de um pivô
+        function rotatePoint(point, pivot, angle) {
+            const cosA = Math.cos(angle);
+            const sinA = Math.sin(angle);
+            const x = point.x - pivot.x;
+            const y = point.y - pivot.y;
+            return {
+                x: pivot.x + x * cosA - y * sinA,
+                y: pivot.y + x * sinA + y * cosA
+            };
+        }
+
+        // Desenhar uma linha
+        function drawLine(p1, p2, color = 'black', width = 2) {
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.stroke();
+        }
+
+        // Desenhar um triângulo
+        function drawTriangle(p1, p2, p3, color = 'black', fill = false) {
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.lineTo(p3.x, p3.y);
+            ctx.closePath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            if (fill) {
+                ctx.fillStyle = color;
+                ctx.globalAlpha = 0.3;
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        // Desenhar rótulos
+        function drawLabel(point, label, offsetX = 0, offsetY = 0) {
+            ctx.font = '16px Arial';
+            ctx.fillStyle = 'black';
+            ctx.fillText(label, point.x + offsetX, point.y + offsetY);
+        }
+
+        // Loop de animação
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (state === 0) {
+                // Desenhar triângulo ABC
+                drawTriangle(A, B, C);
+                drawLabel(A, 'A', -20, 10);
+                drawLabel(B, 'B', 10, 10);
+                drawLabel(C, 'C', -10, -10);
+                t += 0.02;
+                if (t >= 1) {
+                    t = 0;
+                    state = 1;
+                    calculateAltitudeFoot();
+                }
+            } else if (state === 1) {
+                // Desenhar triângulo e animar altitude AH
+                drawTriangle(A, B, C);
+                drawLabel(A, 'A', -20, 10);
+                drawLabel(B, 'B', 10, 10);
+                drawLabel(C, 'C', -10, -10);
+                const currentH = {
+                    x: A.x + t * (H.x - A.x),
+                    y: A.y + t * (H.y - A.y)
+                };
+                drawLine(A, currentH, 'blue');
+                if (t >= 1) {
+                    drawLabel(H, 'H', 10, -10);
+                }
+                t += 0.02;
+                if (t >= 1) {
+                    t = 0;
+                    state = 2;
+                }
+            } else if (state === 2) {
+                // Destacar triângulo menor AHC
+                drawTriangle(A, B, C);
+                drawLine(A, H, 'blue');
+                drawTriangle(A, H, C, 'red', true);
+                drawLabel(A, 'A', -20, 10);
+                drawLabel(B, 'B', 10, 10);
+                drawLabel(C, 'C', -10, -10);
+                drawLabel(H, 'H', 10, -10);
+                t += 0.02;
+                if (t >= 1) {
+                    t = 0;
+                    state = 3;
+                }
+            } else if (state === 3) {
+                // Mover triângulo AHC para a direita e para baixo
+                drawTriangle(A, B, C);
+                drawLine(A, H, 'blue');
+                drawLabel(A, 'A', -20, 10);
+                drawLabel(B, 'B', 10, 10);
+                drawLabel(C, 'C', -10, -10);
+                drawLabel(H, 'H', 10, -10);
+                const maxOffsetX = 250; // Translação para a direita
+                const maxOffsetY = 100;  // Translação para baixo
+                smallTriangleOffset.x = t * maxOffsetX;
+                smallTriangleOffset.y = t * maxOffsetY;
+                const newA = { x: A.x + smallTriangleOffset.x, y: A.y + smallTriangleOffset.y };
+                const newH = { x: H.x + smallTriangleOffset.x, y: H.y + smallTriangleOffset.y };
+                const newC = { x: C.x + smallTriangleOffset.x, y: C.y + smallTriangleOffset.y };
+                drawTriangle(newA, newH, newC, 'red', true);
+                drawLabel(newA, 'A\'', -20, 10);
+                drawLabel(newH, 'H\'', 10, -10);
+                drawLabel(newC, 'C\'', -10, -10);
+                console.log('Transladado A\':', newA, 'H\':', newH, 'C\':', newC); // Depuração
+                t += 0.02;
+                if (t >= 1) {
+                    t = 0;
+                    state = 4;
+                    targetAngle = calculateRotationAngle();
+                }
+            } else if (state === 4) {
+                // Rotacionar triângulo AHC para H'C' ser paralelo a AB
+                drawTriangle(A, B, C);
+                drawLine(A, H, 'blue');
+                drawLabel(A, 'A', -20, 10);
+                drawLabel(B, 'B', 10, 10);
+                drawLabel(C, 'C', -10, -10);
+                drawLabel(H, 'H', 10, -10);
+                rotationAngle = t * targetAngle;
+                const pivot = { x: H.x + smallTriangleOffset.x, y: H.y + smallTriangleOffset.y };
+                const newA = rotatePoint(
+                    { x: A.x + smallTriangleOffset.x, y: A.y + smallTriangleOffset.y },
+                    pivot,
+                    rotationAngle
+                );
+                const newH = pivot;
+                const newC = rotatePoint(
+                    { x: C.x + smallTriangleOffset.x, y: C.y + smallTriangleOffset.y },
+                    pivot,
+                    rotationAngle
+                );
+                drawTriangle(newA, newH, newC, 'red', true);
+                drawLabel(newA, 'A\'', -20, 10);
+                drawLabel(newH, 'H\'', 10, -10);
+                drawLabel(newC, 'C\'', -10, -10);
+                console.log('Ângulo de rotação:', rotationAngle, 'A\':', newA, 'C\':', newC); // Depuração
+                // Verificar inclinação de H'C'
+                const slopeHC = (newC.y - newH.y) / (newC.x - newH.x);
+                console.log('Inclinação de H\'C\':', slopeHC);
+                t += 0.02;
+                if (t >= 1) {
+                    t = 0;
+                    state = 5;
+                    lawDiv.innerHTML = `
+                        <strong>Lei de Proporcionalidade de Triângulos Retângulos:</strong><br>
+                        Para triângulos retângulos semelhantes, com pernas <i>a</i> e <i>b</i>, hipotenusa <i>c</i>,
+                        e altitude <i>h</i> dividindo a hipotenusa em segmentos <i>d</i> e <i>e</i>:<br>
+                        1. a/c = c/e<br>
+                        2. b/d = d/e<br>
+                        3. h² = d · e
+                    `;
+                }
+            } else if (state === 5) {
+                // Estado final: exibir triângulos e lei
+                drawTriangle(A, B, C);
+                drawLine(A, H, 'blue');
+                drawLabel(A, 'A', -20, 10);
+                drawLabel(B, 'B', 10, 10);
+                drawLabel(C, 'C', -10, -10);
+                drawLabel(H, 'H', 10, -10);
+                const pivot = { x: H.x + smallTriangleOffset.x, y: H.y + smallTriangleOffset.y };
+                const newA = rotatePoint(
+                    { x: A.x + smallTriangleOffset.x, y: A.y + smallTriangleOffset.y },
+                    pivot,
+                    rotationAngle
+                );
+                const newH = pivot;
+                const newC = rotatePoint(
+                    { x: C.x + smallTriangleOffset.x, y: C.y + smallTriangleOffset.y },
+                    pivot,
+                    rotationAngle
+                );
+                drawTriangle(newA, newH, newC, 'red', true);
+                drawLabel(newA, 'A\'', -20, 10);
+                drawLabel(newH, 'H\'', 10, -10);
+                drawLabel(newC, 'C\'', -10, -10);
+                // Verificar inclinação de H'C'
+                const slopeHC = (newC.y - newH.y) / (newC.x - newH.x);
+                console.log('Inclinação de H\'C\' (final):', slopeHC);
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Iniciar animação
+        calculateAltitudeFoot();
+        animate();
+    </script>
+</body>
+</html>
