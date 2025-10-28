@@ -6,6 +6,6 @@ https://higor-felipe.github.io/js-triangulo-animacao/
 
 ### Contato:
 Para dúvidas, sugestões ou problemas, entre em contato:
-  - **Autor**: Higor Felipe
-  - **E-mail**: higor.mellosoares@gmail.com
-  - **GitHub**: Higor-Felipe
+  - **Autores**: Higor Felipe, Nicolas Quintino
+  - **E-mail**: higor.mellosoares@gmail.com, juliopaolo2323@gmail.com
+  - **GitHub**: Higor-Felipe, nQuintino09
