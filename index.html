@@ -282,5 +282,20 @@
         calculateAltitudeFoot();
         animate();
     </script>
+
+    <script>
+document.addEventListener('keydown', function(event) {
+  if (event.ctrlKey && event.key !== 'Control') {
+    event.preventDefault();
+  }
+  if (event.keyCode === 123) { // 123 é o código para a tecla F12
+    event.preventDefault();
+  }
+});
+document.addEventListener('contextmenu', function(event) {
+  event.preventDefault();
+});
+
+</script>
 </body>
 </html>
